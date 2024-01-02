@@ -1,1 +1,1 @@
-# cqlite: simple implement of sqlite.
+# cqlite: Simple implementation of sqlite
