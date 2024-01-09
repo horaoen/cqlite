@@ -4,6 +4,6 @@ cmake_minimum_required(VERSION 3.5)
 # 项目信息
 project(cqlite)
 
-# 指定生成目标
-add_executable(cqlite cqlite.c)
+aux_source_directory(./src DIR_SRCS)
 
+add_executable(cqlite ${DIR_SRCS})
