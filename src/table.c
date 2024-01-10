@@ -1,13 +1,17 @@
 #include "table.h"
 #include "input.h"
+#include "pager.h"
+#include "row.h"
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/_types/_off_t.h>
 #include <sys/fcntl.h>
 #include <unistd.h>
+
+const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+const uint32_t TABLE_MAX_ROWS = TABLE_MAX_PAGES * ROWS_PER_PAGE;
 
 Table *db_open(const char *filename) {
   Pager *pager = pager_open(filename);
@@ -136,6 +140,7 @@ ExecuteResult execute_statement(Statement *statement, Table *table) {
 MetaCommandResult do_meta_command(InputBuffer *input_buffer, Table *table) {
   if (strcmp(input_buffer->buffer, ".exit") == 0) {
     close_input_buffer(input_buffer);
+    db_close(table);
     exit(EXIT_SUCCESS);
   } else {
     return META_COMMAND_UNRECOGNIZED_COMMAND;
