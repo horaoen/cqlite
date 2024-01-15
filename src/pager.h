@@ -1,6 +1,5 @@
 #pragma once
 
-#include "row.h"
 #include <stdint.h>
 
 #define TABLE_MAX_PAGES 100

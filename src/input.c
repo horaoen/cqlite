@@ -5,6 +5,14 @@
 #include <sys/_types/_size_t.h>
 #include <sys/_types/_ssize_t.h>
 
+InputBuffer *new_input_buffer() {
+  InputBuffer *input_buffer = (InputBuffer *)malloc(sizeof(InputBuffer));
+  input_buffer->buffer = NULL;
+  input_buffer->buffer_length = 0;
+  input_buffer->input_length = 0;
+  return input_buffer;
+}
+
 void read_input(InputBuffer *input_buffer) {
   ssize_t bytes_read =
       getline(&(input_buffer->buffer), &(input_buffer->buffer_length), stdin);
@@ -17,14 +25,6 @@ void read_input(InputBuffer *input_buffer) {
   // Ignore trailing newline
   input_buffer->input_length = bytes_read - 1;
   input_buffer->buffer[bytes_read - 1] = 0;
-}
-
-InputBuffer *new_input_buffer() {
-  InputBuffer *input_buffer = (InputBuffer *)malloc(sizeof(InputBuffer));
-  input_buffer->buffer = NULL;
-  input_buffer->buffer_length = 0;
-  input_buffer->input_length = 0;
-  return input_buffer;
 }
 
 void close_input_buffer(InputBuffer *input_buffer) {

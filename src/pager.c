@@ -28,9 +28,8 @@ void pager_flush(Pager *pager, uint32_t page_num, uint32_t size) {
     exit(EXIT_FAILURE);
   }
 }
-
 Pager *pager_open(const char *filename) {
-  int fd = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
+  int fd = open(filename, O_RDWR | O_CREAT | S_IWUSR | S_IRUSR);
 
   if (fd == -1) {
     printf("Unable to open file\n");
