@@ -1,17 +1,16 @@
 #include "table.h"
+#include "cursor.h"
 #include "input.h"
 #include "pager.h"
 #include "row.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <iso646.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
-const uint32_t TABLE_MAX_ROWS = TABLE_MAX_PAGES * ROWS_PER_PAGE;
 
 Table *db_open(const char *filename) {
   Pager *pager = pager_open(filename);
@@ -99,32 +98,19 @@ void *get_page(Pager *pager, uint32_t page_num) {
   return pager->pages[page_num];
 }
 
-/*
- * 根据行号定位table内存
- * parameter:
- *   1. table
- *   2. row_num: 行号
- */
-void *row_slot(Table *table, uint32_t row_num) {
-  // 页码
-  uint32_t page_num = row_num / ROWS_PER_PAGE;
-  void *page = get_page(table->pager, page_num);
-  uint32_t row_offset = row_num % ROWS_PER_PAGE;
-  uint32_t byte_offset = row_offset * ROW_SIZE;
-  return page + byte_offset;
-}
-
 ExecuteResult execute_insert(Statement *statement, Table *table) {
   if (table->row_nums >= TABLE_MAX_ROWS) {
     return EXECUTE_TABLE_FULL;
   }
 
   Row *row_to_insert = &(statement->row_to_insert);
+  Cursor *cursor = table_end(table);
 
   // insert
-  serialize_row(row_to_insert, row_slot(table, table->row_nums));
+  serialize_row(row_to_insert, cursor_value(cursor));
   table->row_nums += 1;
 
+  free(cursor);
   return EXECUTE_SUCCESS;
 }
 
@@ -134,10 +120,13 @@ void print_row(Row *row) {
 
 ExecuteResult execute_select(Statement *statement, Table *table) {
   Row row;
-  for (uint32_t i = 0; i < table->row_nums; i++) {
-    deserialize_row(row_slot(table, i), &row);
+  Cursor *cursor = table_start(table);
+  while (!(cursor->end_of_table)) {
+    deserialize_row(cursor_value(cursor), &row);
     print_row(&row);
+    cursor_advnce(cursor);
   }
+  free(cursor);
   return EXECUTE_SUCCESS;
 }
 

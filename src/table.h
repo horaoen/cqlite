@@ -11,12 +11,17 @@ typedef struct {
   Pager *pager;
 } Table;
 
+static const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+static const uint32_t TABLE_MAX_ROWS = TABLE_MAX_PAGES * ROWS_PER_PAGE;
+
 typedef enum { EXECUTE_SUCCESS, EXECUTE_TABLE_FULL } ExecuteResult;
 
 typedef enum {
   META_COMMAND_SUCCESS,
   META_COMMAND_UNRECOGNIZED_COMMAND
 } MetaCommandResult;
+
+void *get_page(Pager *pager, uint32_t page_num);
 
 Table *db_open(const char *filename);
 
