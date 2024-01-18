@@ -7,7 +7,7 @@
 #include <sys/fcntl.h>
 #include <unistd.h>
 
-void pager_flush(Pager *pager, uint32_t page_num, uint32_t size) {
+void pager_flush(Pager *pager, uint32_t page_num) {
   if (pager->pages[page_num] == NULL) {
     printf("Tried to flush null page\n");
     exit(EXIT_FAILURE);
@@ -21,14 +21,14 @@ void pager_flush(Pager *pager, uint32_t page_num, uint32_t size) {
   }
 
   ssize_t bytes_written =
-      write(pager->file_descriptor, pager->pages[page_num], size);
+      write(pager->file_descriptor, pager->pages[page_num], PAGE_SIZE);
 
   if (bytes_written == -1) {
     printf("Error writing: %d\n", errno);
     exit(EXIT_FAILURE);
   }
 }
-Pager *pager_open(const char *filename) {
+Pager *open_file(const char *filename) {
   int fd = open(filename, O_RDWR | O_CREAT | S_IWUSR | S_IRUSR);
 
   if (fd == -1) {
@@ -41,6 +41,12 @@ Pager *pager_open(const char *filename) {
   pager->file_descriptor = fd;
   pager->file_length = file_length;
 
+  pager->pages_num = (file_length / PAGE_SIZE);
+
+  if (file_length % PAGE_SIZE != 0) {
+    printf("Db file is not a whole number of pages. Corrupt file.\n");
+    exit(EXIT_FAILURE);
+  }
   for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
     pager->pages[i] = NULL;
   }

@@ -1,11 +1,11 @@
 #include "table.h"
+#include "b-tree.h"
 #include "cursor.h"
 #include "input.h"
 #include "pager.h"
 #include "row.h"
 #include <errno.h>
 #include <fcntl.h>
-#include <iso646.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,38 +13,29 @@
 #include <unistd.h>
 
 Table *db_open(const char *filename) {
-  Pager *pager = pager_open(filename);
-  uint32_t num_rows = pager->file_length / ROW_SIZE;
+  Pager *pager = open_file(filename);
 
   Table *table = (Table *)malloc(sizeof(Table));
   table->pager = pager;
-  table->row_nums = num_rows;
+  table->root_page_num = 0;
+
+  if (pager->pages_num == 0) {
+    void *root_node = get_page(pager, 0);
+    initialize_leaf_node(root_node);
+  }
   return table;
 }
 
 void db_close(Table *table) {
   Pager *pager = table->pager;
-  uint32_t full_pages_num = table->row_nums / ROWS_PER_PAGE;
 
-  for (uint32_t i = 0; i < full_pages_num; i++) {
+  for (uint32_t i = 0; i < pager->pages_num; i++) {
     if (pager->pages[i] == NULL) {
       continue;
     }
-    pager_flush(pager, i, PAGE_SIZE);
+    pager_flush(pager, i);
     free(pager->pages[i]);
     pager->pages[i] = NULL;
-  }
-
-  // There may be a partial page to write to the end of the file
-  // This should not be needed after we switch to a B-tree
-  uint32_t num_additional_rows = table->row_nums % ROWS_PER_PAGE;
-  if (num_additional_rows > 0) {
-    uint32_t page_num = full_pages_num;
-    if (pager->pages[page_num] != NULL) {
-      pager_flush(pager, page_num, num_additional_rows * ROW_SIZE);
-      free(pager->pages[page_num]);
-      pager->pages[page_num] = NULL;
-    }
   }
 
   int result = close(pager->file_descriptor);
@@ -67,7 +58,7 @@ void db_close(Table *table) {
  * 根据页码定位page内存
  */
 void *get_page(Pager *pager, uint32_t page_num) {
-  if (page_num > TABLE_MAX_ROWS) {
+  if (page_num > TABLE_MAX_PAGES) {
     printf("Tried to fetch page number out of bounds. %d > %d\n", page_num,
            TABLE_MAX_PAGES);
     exit(EXIT_FAILURE);
@@ -94,12 +85,17 @@ void *get_page(Pager *pager, uint32_t page_num) {
     }
 
     pager->pages[page_num] = page;
+
+    if (page_num >= pager->pages_num) {
+      pager->pages_num = page_num + 1;
+    }
   }
   return pager->pages[page_num];
 }
 
 ExecuteResult execute_insert(Statement *statement, Table *table) {
-  if (table->row_nums >= TABLE_MAX_ROWS) {
+  void *node = get_page(table->pager, table->root_page_num);
+  if ((*get_leaf_node_cells_num(node)) >= LEAF_NODE_MAX_CELLS) {
     return EXECUTE_TABLE_FULL;
   }
 
@@ -107,9 +103,7 @@ ExecuteResult execute_insert(Statement *statement, Table *table) {
   Cursor *cursor = table_end(table);
 
   // insert
-  serialize_row(row_to_insert, cursor_value(cursor));
-  table->row_nums += 1;
-
+  insert_leaf_node(cursor, row_to_insert->id, row_to_insert);
   free(cursor);
   return EXECUTE_SUCCESS;
 }
@@ -144,6 +138,14 @@ MetaCommandResult do_meta_command(InputBuffer *input_buffer, Table *table) {
     close_input_buffer(input_buffer);
     db_close(table);
     exit(EXIT_SUCCESS);
+  } else if (strcmp(input_buffer->buffer, ".btree") == 0) {
+    printf("Tree:\n");
+    print_leaf_node(get_page(table->pager, 0));
+    return META_COMMAND_SUCCESS;
+  } else if (strcmp(input_buffer->buffer, ".constants") == 0) {
+    printf("Constans:\n");
+    print_constants();
+    return META_COMMAND_SUCCESS;
   } else {
     return META_COMMAND_UNRECOGNIZED_COMMAND;
   }
